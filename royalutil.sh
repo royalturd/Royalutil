@@ -106,7 +106,60 @@ else
     log_msg "${GREEN}✓ Homebrew is already installed.${NC}"
 fi
 
-# 4. Install Visual Studio Code
+# 4. Install Zsh and Enhancements
+if ! command -v zsh &> /dev/null; then
+    echo -ne "${BOLD_YELLOW}==> Install Zsh? (Y/N): ${NC}"
+    read install_zsh
+    if [[ "$install_zsh" =~ ^[Yy]$ ]]; then
+        log_msg "Installing Zsh..."
+        brew install zsh -y >> "$LOG_FILE" 2>&1
+        log_msg "${GREEN}✓ Zsh installed.${NC}"
+        
+        echo -ne "${BOLD_YELLOW}==> Set Zsh as default shell? (Y/N): ${NC}"
+        read set_default
+        if [[ "$set_default" =~ ^[Yy]$ ]]; then
+            chsh -s $(which zsh)
+            log_msg "${GREEN}✓ Zsh set as default shell.${NC}"
+        fi
+    fi
+else
+    log_msg "${GREEN}✓ Zsh is already installed.${NC}"
+fi
+
+# Install Zsh plugins if Zsh is available
+if command -v zsh &> /dev/null && command -v brew &> /dev/null; then
+    echo -ne "${BOLD_YELLOW}==> Install Zsh enhancements (autosuggestions, syntax-highlighting)? (Y/N): ${NC}"
+    read install_zsh_plugins
+    if [[ "$install_zsh_plugins" =~ ^[Yy]$ ]]; then
+        log_msg "Installing zsh-autosuggestions..."
+        brew install zsh-autosuggestions >> "$LOG_FILE" 2>&1
+        
+        log_msg "Installing zsh-syntax-highlighting..."
+        brew install zsh-syntax-highlighting >> "$LOG_FILE" 2>&1
+        
+        # Add plugin sources to .zshrc if not already present
+        ZSHRC="$HOME/.zshrc"
+        touch "$ZSHRC"
+        
+        # Add autosuggestions
+        if ! grep -q "zsh-autosuggestions.zsh" "$ZSHRC"; then
+            echo '' >> "$ZSHRC"
+            echo '# Zsh autosuggestions' >> "$ZSHRC"
+            echo 'source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh' >> "$ZSHRC"
+        fi
+        
+        # Add syntax highlighting
+        if ! grep -q "zsh-syntax-highlighting.zsh" "$ZSHRC"; then
+            echo '' >> "$ZSHRC"
+            echo '# Zsh syntax highlighting' >> "$ZSHRC"
+            echo 'source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh' >> "$ZSHRC"
+        fi
+        
+        log_msg "${GREEN}✓ Zsh enhancements installed and configured.${NC}"
+    fi
+fi
+
+# 5. Install Visual Studio Code
 if ! command -v code &> /dev/null; then
     echo -ne "${BOLD_YELLOW}==> Install Visual Studio Code? (Y/N): ${NC}"
     read install_code
@@ -122,13 +175,13 @@ if ! command -v code &> /dev/null; then
     fi
 fi
 
-# 5. Install Bitwarden (Snap Only - Visible)
+# 6. Install Bitwarden (Snap Only - Visible)
 if ! command -v bitwarden &> /dev/null; then
     if [[ "$OSTYPE" != "darwin"* ]]; then
         echo -ne "${BOLD_YELLOW}==> Install Bitwarden via Snap? (Y/N): ${NC}"
         read install_bw
         if [[ "$install_bw" =~ ^[Yy]$ ]]; then
-            log_msg "Installing Bitwarden... (Progress visible below)"
+            log_msg "Installing Bitwarden..."
             # Note: We do NOT redirect output to LOG_FILE here so you can see the snap progress bar
             sudo snap install bitwarden
             log_msg "${GREEN}✓ Bitwarden installation process finished.${NC}"
@@ -138,7 +191,7 @@ else
     log_msg "${GREEN}✓ Bitwarden is already installed.${NC}"
 fi
 
-# 6. Install Atuin
+# 7. Install Atuin
 if ! command -v atuin &> /dev/null; then
     echo -ne "${BOLD_YELLOW}==> Install Atuin (Shell History)? (Y/N): ${NC}"
     read install_atuin
@@ -156,7 +209,7 @@ else
     log_msg "${GREEN}✓ Atuin is already installed.${NC}"
 fi
 
-# 7. Install Extras (fzf, fastfetch, btop)
+# 8. Install Extras (fzf, fastfetch, btop)
 for tool in fzf fastfetch btop; do
     if ! command -v $tool &> /dev/null; then
         echo -ne "${BOLD_YELLOW}==> Install $tool? (Y/N): ${NC}"
@@ -169,7 +222,7 @@ for tool in fzf fastfetch btop; do
     fi
 done
 
-# 8. Install Zellij (Terminal Workspace)
+# 9. Install Zellij (Terminal Workspace)
 if ! command -v zellij &> /dev/null; then
     echo -ne "${BOLD_YELLOW}==> Install Zellij (Terminal Workspace)? (Y/N): ${NC}"
     read install_zellij

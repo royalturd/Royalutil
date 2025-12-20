@@ -11,6 +11,8 @@ An interactive system utility bash script designed to automate the setup and con
   - Visual Studio Code (via official Microsoft APT repository)
   - Bitwarden (via Snap)
   - Atuin (Shell History)
+- **Shell Enhancements**:
+  - Zsh with autosuggestions and syntax highlighting
 - **CLI Utilities**: Installs fzf, fastfetch, and btop.
 - **Logging**: All installation steps and errors are logged to `~/royalutil_setup.log`.
 
