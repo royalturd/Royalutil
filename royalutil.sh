@@ -36,6 +36,20 @@ echo "             |___/                      "
 echo -e "${BLUE}           Interactive System Utility${NC}"
 log_msg "${YELLOW}Logging to: $LOG_FILE${NC}\n"
 
+# 0. System Maintenance (Update & Upgrade)
+echo -ne "${BOLD_YELLOW}==> Update package lists and upgrade system? (Y/N): ${NC}"
+read update_sys
+if [[ "$update_sys" =~ ^[Yy]$ ]]; then
+    log_msg "${YELLOW}Refreshing package lists and upgrading system...${NC}"
+    # Output shown in terminal but suppressed from log file
+    sudo apt update > /dev/tty
+    sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y > /dev/tty
+    sudo apt autoremove -y > /dev/tty
+    log_msg "${GREEN}✓ System is now up to date.${NC}\n"
+else
+    log_msg "${BLUE}Skipping system update.${NC}\n"
+fi
+
 # 1. Set Nano as Default Editor
 log_msg "${YELLOW}Setting Nano as default code editor...${NC}"
 export EDITOR=nano
@@ -154,6 +168,19 @@ for tool in fzf fastfetch btop; do
         fi
     fi
 done
+
+# 8. Install Zellij (Terminal Workspace)
+if ! command -v zellij &> /dev/null; then
+    echo -ne "${BOLD_YELLOW}==> Install Zellij (Terminal Workspace)? (Y/N): ${NC}"
+    read install_zellij
+    if [[ "$install_zellij" =~ ^[Yy]$ ]]; then
+        log_msg "Installing Zellij..."
+         brew install zellij > /dev/tty
+        log_msg "${GREEN}✓ Zellij installed.${NC}"
+    fi
+else
+    log_msg "${GREEN}✓ Zellij is already installed.${NC}"
+fi
 
 log_msg "\n${BLUE}=== Royalutil Setup Complete! ===${NC}"
 command -v fastfetch &> /dev/null && fastfetch
