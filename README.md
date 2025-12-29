@@ -1,70 +1,96 @@
-# Royalutil
+# 👑 Royalutil
 
-An interactive system utility bash script designed to automate the setup and configuration of development environments on Linux.
+<p align="center">
+  <img src="https://img.shields.io/badge/Shell-Bash-blue?style=for-the-badge&logo=gnu-bash" alt="Bash">
+  <img src="https://img.shields.io/badge/Platform-Linux-orange?style=for-the-badge&logo=linux" alt="Linux">
+</p>
 
-## Features
+An interactive system utility bash script designed to automate the setup and configuration of development environments on Linux with a focus on aesthetics and ease of use.
 
-* **System Maintenance**: Optional system update and upgrade with package cleanup
-* **Default Editor**: Automatically sets nano as the global system editor
-* **Git Configuration**: Installs Git and configures identity and credential caching (99,999s timeout)
-* **Package Managers**: 
-  * Installs Homebrew (Linuxbrew) if not present
-  * Installs Flatpak with Flathub repository
-* **GUI Applications** (via Flatpak):
-  * Bitwarden (Password Manager)
-  * Visual Studio Code (Code Editor)
-  * Stremio (Media Streaming)
-  * Warehouse (Flatpak Manager)
-  * Bazaar (Nerd Fonts Manager)
-* **Shell Enhancements**:
-  * Zsh with autosuggestions and syntax highlighting
-  * Atuin (Enhanced Shell History)
-* **Terminal Tools**:
-  * fzf (Fuzzy Finder)
-  * fastfetch (System Information)
-  * btop (Resource Monitor)
-  * Zellij (Terminal Workspace Manager)
-* **Logging**: Errors are logged to `~/royalutil_setup.log` while all progress is shown in terminal
+---
 
-## Usage
+## ✨ Features
 
-1. **Download the script**: Ensure `royalutil.sh` is in your current directory.
+### 🛠️ Core System
+* **System Maintenance**: Optional update/upgrade with automatic cleanup.
+* **Default Editor**: Sets `nano` as the global system editor.
+* **Git Setup**: Installs Git and configures identity with long-term credential caching.
 
-2. **Make it executable**:
+### 📦 Package Management
+* **Homebrew**: Installs Linuxbrew for extra package support.
+* **Flatpak**: Full setup with the Flathub repository enabled.
+
+### 🚀 GUI Applications (via Flatpak)
+* 🔐 **Bitwarden**: Premium password management.
+* 💻 **VS Code**: The industry-standard code editor.
+* 🎬 **Stremio**: Modern media streaming.
+* 🏪 **Warehouse**: Graphic Flatpak manager.
+* 🎨 **Bazaar**: Nerd Fonts manager.
+* 🦊 **Firefox Nightly**: Cutting-edge web browsing.
+
+### 🎵 Entertainment & Customization
+* 🎧 **Spotify**: Installed via official `apt` repository for seamless updates.
+* 🪄 **Spicetify**: Powerful CLI for Spotify themes and Marketplace extensions.
+
+### 🐚 Shell & Terminal
+* **Zsh**: Enhanced with autosuggestions and syntax highlighting.
+* **Atuin**: Magical shell history synchronization.
+* **Modern Tools**: `fzf` (Fuzzy Finder), `fastfetch` (System Info), `btop` (Resource Monitor).
+* **Zellij**: Modern terminal workspace manager.
+
+---
+
+## 🚀 Usage
+
+### 1. Download & Prepare
+Ensure `royalutil.sh` is in your current directory.
+
+### 2. Make it Executable
+```bash
+chmod +x royalutil.sh
+```
+
+### 3. Run the Utility
+```bash
+./royalutil.sh
+```
+
+### 4. Interactive Setup
+Follow the prompts! The script uses a modern UI with icons and clear headers to guide you through the process.
+
+---
+
+## 📜 Requirements
+
+* **OS**: Linux (Debian/Ubuntu-based recommended).
+* **Package Manager**: `apt` for base system packages.
+* **Connectivity**: Internet connection for downloads.
+* **Permissions**: `sudo` access for installations.
+
+---
+
+## 🏁 Post-Installation
+
+1. **New Session**: Restart your terminal to apply shell changes (Zsh, Atuin).
+2. **Launch Apps**: Open your application menu or use:
    ```bash
-   chmod +x royalutil.sh
-   ```
-
-3. **Run the script**:
-   ```bash
-   ./royalutil.sh
-   ```
-
-4. **Follow the Prompts**: The script will ask for confirmation before installing each component.
-
-## Requirements
-
-* **Operating System**: Linux (Debian/Ubuntu-based distributions)
-* **Package Managers**: Requires `apt` for base packages
-* **Internet Connection**: Required for downloading packages and repositories
-* **Permissions**: sudo access for system-level installations
-
-## Post-Installation
-
-After the script finishes:
-
-1. **Restart your terminal session** to apply changes to your shell environment (Zsh, Atuin integration, and editor paths)
-2. **Launch Flatpak applications** from your application menu or via command line:
-   ```bash
-   flatpak run com.bitwarden.desktop
+   flatpak run org.mozilla.FirefoxNightly
    flatpak run com.visualstudio.code
-   flatpak run com.stremio.Stremio
-   flatpak run io.github.flattool.Warehouse
-   flatpak run io.github.getnf.Bazaar
    ```
+3. **Customize Spotify**:
+   - Launch Spotify and log in.
+   - Run: `spicetify backup apply` to initialize Marketplace.
 
-## Troubleshooting
+---
 
-* **Check the error log**: Review `~/royalutil_setup.log` for any errors that occurred during installation
-* **Flatpak not working**: Ensure you log out and log back in after Flatpak installation for proper desktop integration
-* **Command not found**: Source your shell configuration or restart your terminal session
+## 🛠️ Troubleshooting
+
+* **Logs**: Check `~/royalutil_setup.log` for detailed error tracking.
+* **Shell**: If commands aren't found, ensure you've restarted your terminal or run `source ~/.zshrc`.
+* **Flatpak**: If icons don't appear, a system logout/login may be required.
+
+---
+
+<p align="center">
+  Built with ❤️ for the Linux Community
+</p>
