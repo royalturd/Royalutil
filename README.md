@@ -13,8 +13,8 @@ An interactive system utility bash script designed to automate the setup and con
 
 ### 🛠️ Core System
 * **System Maintenance**: Optional update/upgrade with automatic cleanup.
-* **Default Editor**: Sets `nano` as the global system editor.
-* **Git Setup**: Installs Git and configures identity with long-term credential caching.
+* **Default Editor**: Interactive setup for `nano` as the global system editor.
+* **Git Setup**: Interactive Git installation and configuration (identity, global settings, & credential caching).
 
 ### 📦 Package Management
 * **Homebrew**: Installs Linuxbrew for extra package support.
@@ -31,6 +31,7 @@ An interactive system utility bash script designed to automate the setup and con
 ### 🎵 Entertainment & Customization
 * 🎧 **Spotify**: Installed via official `apt` repository for seamless updates.
 * 🪄 **Spicetify**: Powerful CLI for Spotify themes and Marketplace extensions.
+* 🎨 **Bootloader Themes**: Optional installation of Top-5 Bootloader Themes (sourced from [ChrisTitusTech](https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes)).
 
 ### 🐚 Shell & Terminal
 * **Zsh**: Enhanced with autosuggestions and syntax highlighting.

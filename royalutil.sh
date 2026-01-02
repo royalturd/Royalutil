@@ -1,5 +1,13 @@
 #!/bin/bash
 
+################################################################################
+# Script Name: Royalutil
+# Description: Interactive System Utility for Linux Setup & Optimization
+# Author:      Royalturd
+# Repository:  https://github.com/royalturd/Royalutil
+################################################################################
+
+
 # Define log file path
 LOG_FILE="$HOME/royalutil_setup.log"
 
@@ -108,18 +116,24 @@ fi
 
 # 1. Set Nano as Default Editor
 print_header "Default Code Editor"
-info_msg "Setting Nano as default code editor..."
-export EDITOR=nano
-export VISUAL=nano
+ask_user "Set Nano as default code editor?"
+read set_nano
+if [[ "$set_nano" =~ ^[Yy]$ ]]; then
+    info_msg "${ICON_TOOL} Setting Nano as default code editor..."
+    export EDITOR=nano
+    export VISUAL=nano
 
-for file in "$HOME/.zshrc" "$HOME/.bashrc"; do
-    if [ -f "$file" ]; then
-        sed -i.bak '/export EDITOR=/d' "$file" 2>/dev/null || sed -i '/export EDITOR=/d' "$file"
-        echo 'export EDITOR="nano"' >> "$file"
-        echo 'export VISUAL="nano"' >> "$file"
-    fi
-done
-success_msg "Nano is now your default system editor."
+    for file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [ -f "$file" ]; then
+            sed -i.bak '/export EDITOR=/d' "$file" 2>/dev/null || sed -i '/export EDITOR=/d' "$file"
+            echo 'export EDITOR="nano"' >> "$file"
+            echo 'export VISUAL="nano"' >> "$file"
+        fi
+    done
+    success_msg "Nano is now your default system editor."
+else
+    info_msg "Skipping Nano setup."
+fi
 
 # 2. Install & Configure Git
 print_header "Git Setup"
@@ -136,9 +150,15 @@ fi
 
 # Git Config
 if command -v git &> /dev/null; then
-    git config --global core.editor "nano"
-    git config --global credential.helper 'cache --timeout=99999'
-    success_msg "Git credential timeout set to 99,999s."
+    ask_user "Configure global Git settings (editor & credential timeout)?"
+    read git_global_conf
+    if [[ "$git_global_conf" =~ ^[Yy]$ ]]; then
+        git config --global core.editor "nano"
+        git config --global credential.helper 'cache --timeout=99999'
+        success_msg "Git global settings applied (Nano editor, 99,999s timeout)."
+    else
+        info_msg "Skipping global Git settings."
+    fi
 
     ask_user "Configure Git identity?"
     read git_conf
@@ -387,6 +407,36 @@ if ! command -v spicetify &> /dev/null; then
     fi
 else
     success_msg "Spicetify is already installed."
+fi
+
+# 12. Install Bootloader Themes
+# https://github.com/ChrisTitusTech/linutil/blob/66296bd6e2f6d6b6bc0d51f978cad4d909ef668d/core/tabs/applications-setup/grub-theme.sh
+print_header "Bootloader Themes (https://github.com/ChrisTitusTech/linutil)"
+ask_user "Install Top-5 Bootloader Themes?"
+read install_themes
+if [[ "$install_themes" =~ ^[Yy]$ ]]; then
+    THEME_DIR="$HOME/.local/share/Top-5-Bootloader-Themes"
+    info_msg "${ICON_UPDATE} Cloning Top-5 Bootloader Themes..."
+    mkdir -p "$HOME/.local/share"
+    
+    if [ -d "$THEME_DIR" ]; then
+        rm -rf "$THEME_DIR"
+    fi
+    
+    if git clone https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes "$THEME_DIR"; then
+        (
+            cd "$THEME_DIR" || exit 1
+            info_msg "${ICON_TOOL} Preparing installation script..."
+            chmod +x install.sh
+            # Restore stderr to stdout for this interactive command so user sees it
+            sudo ./install.sh 2>&1
+        )
+        success_msg "Bootloader themes installation process finished."
+    else
+        error_msg "Failed to clone the theme repository."
+    fi
+else
+    info_msg "Skipping bootloader themes installation."
 fi
 
 echo -e "\n${BOLD}${BLUE}=== Royalutil Setup Complete! ===${NC}"
