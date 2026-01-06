@@ -9,55 +9,46 @@ An interactive system utility bash script designed to automate the setup and con
 
 ---
 
+<p align="center">
+  <img src="./asset/screenshot.png" title="Royalutil">
+</p>
+
 ## ✨ Features
 
-### 🛠️ Core System
-* **System Maintenance**: Optional update/upgrade with automatic cleanup.
-* **Default Editor**: Interactive setup for `nano` as the global system editor.
-* **Git Setup**: Interactive Git installation and configuration (identity, global settings, & credential caching).
+### 🎨 Modern TUI & UX
+* **Selective Installation**: Multi-select menu powered by `fzf`. Choose exactly what you want to install.
+* **Progress Tracking**: Dynamic progress bar during multi-module execution.
+* **Network Awareness**: Automatic connectivity checks before starting downloads.
+* **Stylized Interface**: Rounded borders and clear headers for a premium feel.
 
-### 📦 Package Management
+### 🛠️ Core System (Modular)
+* **System Maintenance**: Refresh package lists and upgrade with automatic cleanup.
+* **Default Editor**: Safely configure `nano` as the global system editor with markers.
+* **Git Setup**: Interactive configuration (identity, global settings, & credential caching).
+
+### 📦 Package & Shell Management
 * **Homebrew**: Installs Linuxbrew for extra package support.
 * **Flatpak**: Full setup with the Flathub repository enabled.
-
-### 🚀 GUI Applications (via Flatpak)
-* 🔐 **Bitwarden**: Premium password management.
-* 💻 **VS Code**: The industry-standard code editor.
-* 🎬 **Stremio**: Modern media streaming.
-* 🏪 **Warehouse**: Graphic Flatpak manager.
-* 🎨 **Bazaar**: Nerd Fonts manager.
-* 🦊 **Firefox Nightly**: Cutting-edge web browsing.
-
-### 🎵 Entertainment & Customization
-* 🎧 **Spotify**: Installed via official `apt` repository for seamless updates.
-* 🪄 **Spicetify**: Powerful CLI for Spotify themes and Marketplace extensions.
-* 🎨 **Bootloader Themes**: Optional installation of Top-5 Bootloader Themes (sourced from [ChrisTitusTech](https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes)).
-
-### 🐚 Shell & Terminal
 * **Zsh**: Enhanced with autosuggestions and syntax highlighting.
-* **Atuin**: Magical shell history synchronization.
-* **Modern Tools**: `fzf` (Fuzzy Finder), `fastfetch` (System Info), `btop` (Resource Monitor).
-* **Zellij**: Modern terminal workspace manager.
+* **Atuin & Modern Tools**: `fzf`, `fastfetch`, `btop`, `zellij`.
 
----
+### 🚀 Usage
 
-## 🚀 Usage
-
-### 1. Download & Prepare
-Ensure `royalutil.sh` is in your current directory.
-
-### 2. Make it Executable
+#### Command Line Arguments
 ```bash
-chmod +x royalutil.sh
+./royalutil.sh [OPTIONS]
+
+Options:
+  -h, --help            Show help message.
+  -y, --non-interactive Run all modules without user prompts.
 ```
 
-### 3. Run the Utility
+#### Interactive Setup
+Run without arguments to enter the TUI:
 ```bash
 ./royalutil.sh
 ```
-
-### 4. Interactive Setup
-Follow the prompts! The script uses a modern UI with icons and clear headers to guide you through the process.
+Follow the prompts! Use `TAB` to multi-select modules in the `fzf` menu.
 
 ---
 
