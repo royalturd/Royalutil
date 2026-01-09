@@ -54,13 +54,47 @@ ask_user() {
 
 check_dependencies() {
     local deps=("curl" "git" "sudo")
+    local missing_deps=()
+    
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
-            error_msg "Dependency missing: $dep. Please install it first."
-            exit 1
+            missing_deps+=("$dep")
         fi
     done
-    check_network
+
+    if [ "${#missing_deps[@]}" -gt 0 ]; then
+        warn_msg "Missing dependencies: ${missing_deps[*]}"
+        if ask_user "Would you like to install the missing dependencies?"; then
+            info_msg "Installing missing dependencies: ${missing_deps[*]}..."
+            sudo apt update && sudo apt install -y "${missing_deps[@]}"
+            
+            # Re-check after installation
+            for dep in "${missing_deps[@]}"; do
+                if ! command -v "$dep" &> /dev/null; then
+                    error_msg "Failed to install $dep. Please install it manually."
+                    return 1
+                fi
+            done
+            success_msg "All dependencies installed successfully."
+        else
+            error_msg "Dependencies are required to continue."
+            return 1
+        fi
+    fi
+    return 0
+}
+
+check_network() {
+    info_msg "Checking network connectivity..."
+    if ! ping -c 1 8.8.8.8 &> /dev/null; then
+        warn_msg "No internet connection detected. Some modules may fail."
+        if ! ask_user "Continue anyway?"; then
+            return 1
+        fi
+    else
+        success_msg "Network connection verified."
+    fi
+    return 0
 }
 
 show_progress() {
@@ -75,18 +109,6 @@ show_progress() {
     local space=$(printf "%${remaining}s" | tr ' ' '░')
     
     echo -ne "\r${BOLD}${BLUE}Progress: [${bar}${space}] ${percentage}% (${current}/${total})${NC}"
-}
-
-check_network() {
-    info_msg "Checking network connectivity..."
-    if ! ping -c 1 8.8.8.8 &> /dev/null; then
-        error_msg "No internet connection detected. Some modules may fail."
-        if ! ask_user "Continue anyway?"; then
-            exit 1
-        fi
-    else
-        success_msg "Network connection verified."
-    fi
 }
 
 append_if_missing() {
@@ -157,6 +179,7 @@ install_git() {
         fi
 
         if ask_user "Configure Git identity?"; then
+            local git_name git_email
             read -p "Name: " git_name
             read -p "Email: " git_email
             git config --global user.name "$git_name"
@@ -287,15 +310,44 @@ install_utilities() {
     done
 }
 
+install_nerdfonts() {
+    print_header "Nerd Fonts Installation"
+    if ask_user "Install JetBrainsMono Nerd Font?"; then
+        info_msg "${ICON_FONT} Installing JetBrainsMono Nerd Font..."
+        local font_dir="$HOME/.local/share/fonts"
+        mkdir -p "$font_dir"
+        
+        # Ensure dependencies are present
+        sudo apt update && sudo apt install unzip fontconfig -y
+        
+        local temp_dir=$(mktemp -d)
+        local font_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+        
+        if curl -fsSL "$font_url" -o "$temp_dir/font.zip"; then
+            unzip -o "$temp_dir/font.zip" -d "$temp_dir"
+            find "$temp_dir" -name "*.[ot]tf" -exec cp {} "$font_dir/" \;
+            
+            info_msg "Refreshing font cache..."
+            fc-cache -f "$font_dir"
+            
+            rm -rf "$temp_dir"
+            success_msg "JetBrainsMono Nerd Font installed successfully."
+        else
+            error_msg "Failed to download Nerd Font from $font_url"
+            rm -rf "$temp_dir"
+        fi
+    fi
+}
+
 install_themes() {
     print_header "Bootloader Themes"
     if ask_user "Install Top-5 Bootloader Themes?"; then
-        THEME_DIR="$HOME/.local/share/Top-5-Bootloader-Themes"
+        local theme_dir="$HOME/.local/share/Top-5-Bootloader-Themes"
         mkdir -p "$HOME/.local/share"
-        [ -d "$THEME_DIR" ] && rm -rf "$THEME_DIR"
-        if git clone https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes "$THEME_DIR"; then
-            chmod +x "$THEME_DIR/install.sh"
-            sudo "$THEME_DIR/install.sh"
+        [ -d "$theme_dir" ] && rm -rf "$theme_dir"
+        if git clone https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes "$theme_dir"; then
+            chmod +x "$theme_dir/install.sh"
+            sudo "$theme_dir/install.sh"
             success_msg "Bootloader themes installed."
         fi
     fi
@@ -320,6 +372,7 @@ Modules available:
   - Applications (Spotify, VS Code, etc.)
   - System Utilities (fzf, btop, etc.)
   - Bootloader Themes
+  - Nerd Fonts (JetBrainsMono)
 EOF
     exit 0
 }
@@ -341,6 +394,7 @@ run_tui() {
         "7. Applications"
         "8. System Utilities"
         "9. Bootloader Themes"
+        "10. Nerd Fonts"
         "All. Run Full Setup"
     )
 
@@ -365,6 +419,7 @@ run_tui() {
         [[ "$choice" == *"7. Applications"* ]] && selected+=("install_apps")
         [[ "$choice" == *"8. System Utilities"* ]] && selected+=("install_utilities")
         [[ "$choice" == *"9. Bootloader Themes"* ]] && selected+=("install_themes")
+        [[ "$choice" == *"10. Nerd Fonts"* ]] && selected+=("install_nerdfonts")
 
         local total=${#selected[@]}
         local count=0
@@ -390,7 +445,8 @@ run_fallback_menu() {
     echo "7. Applications"
     echo "8. System Utilities"
     echo "9. Bootloader Themes"
-    echo "10. Full Setup"
+    echo "10. Nerd Fonts"
+    echo "11. Full Setup"
     echo "0. Exit"
     
     read -p "Choice: " choice
@@ -404,7 +460,8 @@ run_fallback_menu() {
         7) install_apps ;;
         8) install_utilities ;;
         9) install_themes ;;
-        10) run_full_setup ;;
+        10) install_nerdfonts ;;
+        11) run_full_setup ;;
         0) exit 0 ;;
         *) warn_msg "Invalid choice." ;;
     esac
@@ -421,6 +478,7 @@ run_full_setup() {
         "install_apps"
         "install_utilities"
         "install_themes"
+        "install_nerdfonts"
     )
     local total=${#tasks[@]}
     local count=0
@@ -457,7 +515,11 @@ EOF
 echo -e "${BOLD}${BLUE}           Interactive System Utility${NC}"
 echo -e "${PURPLE}───────────────────────────────────────────────${NC}"
 
-check_dependencies
+if ! check_dependencies; then
+    exit 1
+fi
+
+check_network
 
 if [ "$NON_INTERACTIVE" = true ]; then
     run_full_setup
