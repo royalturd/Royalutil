@@ -37,10 +37,22 @@ print_header() {
     echo -e "${PURPLE}$(printf '%.s─' $(seq 1 $((${#title} + 2))))${NC}"
 }
 
-success_msg() { echo -e "${GREEN}${ICON_SUCCESS} $1${NC}"; }
-error_msg() { echo -e "${RED}${ICON_ERROR} $1${NC}" | tee -a "$LOG_FILE"; }
-warn_msg() { echo -e "${YELLOW}${ICON_WARN} $1${NC}"; }
-info_msg() { echo -e "${CYAN}${ICON_INFO} $1${NC}"; }
+success_msg() { 
+    echo -e "${GREEN}${ICON_SUCCESS} $1${NC}"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [SUCCESS] $1" >> "$LOG_FILE"
+}
+error_msg() { 
+    echo -e "${RED}${ICON_ERROR} $1${NC}"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [ERROR] $1" >> "$LOG_FILE"
+}
+warn_msg() { 
+    echo -e "${YELLOW}${ICON_WARN} $1${NC}"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [WARN] $1" >> "$LOG_FILE"
+}
+info_msg() { 
+    echo -e "${CYAN}${ICON_INFO} $1${NC}"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [INFO] $1" >> "$LOG_FILE"
+}
 ask_user() {
     if [ "$NON_INTERACTIVE" = true ]; then return 0; fi
     local prompt=$1
@@ -50,9 +62,32 @@ ask_user() {
 }
 
 [ -f "$LOG_FILE" ] && rm "$LOG_FILE"
+touch "$LOG_FILE"
 # Redirect errors to the log file via helper functions, not global exec
 
+cleanup() {
+    echo -e "\n${RED}${ICON_WARN} Setup interrupted by user. Exiting gracefully...${NC}"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [WARN] Setup interrupted by user." >> "$LOG_FILE"
+    [[ -n "$SUDO_KEEP_ALIVE_PID" ]] && kill "$SUDO_KEEP_ALIVE_PID" 2>/dev/null
+    exit 1
+}
+trap cleanup SIGINT SIGTERM
+
+backup_file() {
+    local file=$1
+    if [ -f "$file" ]; then
+        local backup="${file}.bak_$(date +%F_%H-%M-%S)"
+        cp "$file" "$backup"
+        info_msg "Created backup of $file -> $backup"
+    fi
+}
+
 check_dependencies() {
+    if ! command -v apt &> /dev/null; then
+        error_msg "This script currently requires 'apt' (Debian/Ubuntu-based system)."
+        return 1
+    fi
+
     local deps=("curl" "git" "sudo")
     local missing_deps=()
     
@@ -153,8 +188,11 @@ setup_editor() {
         export VISUAL=nano
 
         for file in "$HOME/.zshrc" "$HOME/.bashrc"; do
-            [ -f "$file" ] && append_if_missing "$file" 'export EDITOR="nano"'
-            [ -f "$file" ] && append_if_missing "$file" 'export VISUAL="nano"'
+            if [ -f "$file" ]; then
+                backup_file "$file"
+                append_if_missing "$file" 'export EDITOR="nano"'
+                append_if_missing "$file" 'export VISUAL="nano"'
+            fi
         done
         success_msg "Nano is now your default system editor."
     fi
@@ -229,6 +267,7 @@ setup_zsh() {
             if command -v brew &> /dev/null; then
                 brew install zsh-autosuggestions zsh-syntax-highlighting
                 ZSHRC="$HOME/.zshrc"
+                backup_file "$ZSHRC"
                 append_if_missing "$ZSHRC" 'source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh'
                 append_if_missing "$ZSHRC" 'source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh'
                 success_msg "Zsh enhancements configured."
@@ -521,11 +560,19 @@ fi
 
 check_network
 
+info_msg "Prompting for sudo password to prevent interruptions..."
+sudo -v
+# Keep-alive: update existing `sudo` time stamp until the script has finished
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+SUDO_KEEP_ALIVE_PID=$!
+
 if [ "$NON_INTERACTIVE" = true ]; then
     run_full_setup
 else
     run_tui
 fi
+
+[[ -n "$SUDO_KEEP_ALIVE_PID" ]] && kill "$SUDO_KEEP_ALIVE_PID" 2>/dev/null
 
 echo -e "\n${BOLD}${BLUE}=== Royalutil Setup Complete! ===${NC}"
 command -v fastfetch &> /dev/null && fastfetch
