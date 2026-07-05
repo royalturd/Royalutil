@@ -7,6 +7,10 @@
 
 An interactive system utility bash script designed to automate the setup and configuration of development environments on Linux with a focus on aesthetics and ease of use.
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/royalturd/Royalutil/refs/heads/master/royalutil.sh | bash
+```
+
 ---
 
 <p align="center">

@@ -30,6 +30,7 @@ ICON_ERROR="❌"
 ICON_WARN="⚠️"
 ICON_INFO="ℹ️"
 ICON_QUESTION="❓"
+ICON_FONT="🔤"
 
 print_header() {
     local title=$1
@@ -163,7 +164,12 @@ append_if_missing() {
                 echo "$marker_end"
             } >> "$file"
         else
-            sed -i "/$marker_end/i $line" "$file"
+            local tmp_file
+            tmp_file=$(mktemp)
+            awk -v marker="$marker_end" -v newline="$line" '
+                index($0, marker) == 1 { print newline }
+                { print }
+            ' "$file" > "$tmp_file" && mv "$tmp_file" "$file"
         fi
     fi
 }
@@ -565,14 +571,13 @@ sudo -v
 # Keep-alive: update existing `sudo` time stamp until the script has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 SUDO_KEEP_ALIVE_PID=$!
+trap '[[ -n "$SUDO_KEEP_ALIVE_PID" ]] && kill "$SUDO_KEEP_ALIVE_PID" 2>/dev/null' EXIT
 
 if [ "$NON_INTERACTIVE" = true ]; then
     run_full_setup
 else
     run_tui
 fi
-
-[[ -n "$SUDO_KEEP_ALIVE_PID" ]] && kill "$SUDO_KEEP_ALIVE_PID" 2>/dev/null
 
 echo -e "\n${BOLD}${BLUE}=== Royalutil Setup Complete! ===${NC}"
 command -v fastfetch &> /dev/null && fastfetch
