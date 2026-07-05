@@ -133,6 +133,14 @@ check_network() {
     return 0
 }
 
+if [[ "$(locale charmap 2>/dev/null)" == "UTF-8" ]]; then
+    BAR_FULL="█"
+    BAR_EMPTY="░"
+else
+    BAR_FULL="#"
+    BAR_EMPTY="-"
+fi
+
 show_progress() {
     local current=$1
     local total=$2
@@ -140,10 +148,11 @@ show_progress() {
     local percentage=$((current * 100 / total))
     local completed=$((current * width / total))
     local remaining=$((width - completed))
-    
-    local bar=$(printf "%${completed}s" | tr ' ' '█')
-    local space=$(printf "%${remaining}s" | tr ' ' '░')
-    
+
+    local bar="" space=""
+    for ((i=0; i<completed; i++)); do bar+="$BAR_FULL"; done
+    for ((i=0; i<remaining; i++)); do space+="$BAR_EMPTY"; done
+
     echo -ne "\r${BOLD}${BLUE}Progress: [${bar}${space}] ${percentage}% (${current}/${total})${NC}"
 }
 
