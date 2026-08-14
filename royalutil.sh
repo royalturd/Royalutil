@@ -11,6 +11,78 @@ LOG_FILE="$HOME/royalutil_setup.log"
 NON_INTERACTIVE=false
 UNINSTALL_MODE=false
 DRY_RUN=false
+MODULES_ARG=""
+
+SCRIPT_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+CONFIG_FILE="${ROYALUTIL_CONFIG:-${SCRIPT_SELF_DIR:+$SCRIPT_SELF_DIR/royalutil.conf}}"
+
+# id|Display Name|Description entries, populated by load_catalog().
+FLATPAK_CATALOG=()
+UTIL_CATALOG=()
+
+DEFAULT_FLATPAK_CATALOG=(
+    "com.bitwarden.desktop|Bitwarden|Password manager"
+    "com.visualstudio.code|VS Code|Code editor"
+    "com.stremio.Stremio|Stremio|Media center / streaming"
+    "io.github.flattool.Warehouse|Warehouse|Flatpak app manager"
+    "io.github.getnf.Bazaar|Bazaar|Nerd Font manager"
+    "org.mozilla.FirefoxNightly|Firefox Nightly|Web browser"
+)
+DEFAULT_UTIL_CATALOG=(
+    "fzf|fzf|Fuzzy finder"
+    "fastfetch|fastfetch|System info tool"
+    "btop|btop|Resource monitor"
+    "zellij|zellij|Terminal multiplexer"
+    "atuin|Atuin|Shell history sync"
+)
+
+# Reads royalutil.conf ([flatpak] / [utilities] sections, id|Name|Desc lines)
+# into FLATPAK_CATALOG / UTIL_CATALOG, falling back to the built-in defaults
+# above when the file is missing or a section is empty.
+load_catalog() {
+    FLATPAK_CATALOG=()
+    UTIL_CATALOG=()
+    if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+        local section="" line
+        while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            case "$line" in
+                ''|'#'*) continue ;;
+                '['*']')
+                    section="${line#[}"
+                    section="${section%]}"
+                    continue
+                    ;;
+            esac
+            case "$section" in
+                flatpak) FLATPAK_CATALOG+=("$line") ;;
+                utilities) UTIL_CATALOG+=("$line") ;;
+            esac
+        done < "$CONFIG_FILE"
+    fi
+    [ "${#FLATPAK_CATALOG[@]}" -eq 0 ] && FLATPAK_CATALOG=("${DEFAULT_FLATPAK_CATALOG[@]}")
+    [ "${#UTIL_CATALOG[@]}" -eq 0 ] && UTIL_CATALOG=("${DEFAULT_UTIL_CATALOG[@]}")
+}
+
+# Filters a "id|Name|Desc" catalog array down to the ids listed in a
+# comma-separated string, preserving catalog order. Echoes nothing (fills
+# a nameref-free global via stdout, one id per line) - callers capture with
+# a `while read` loop or mapfile.
+catalog_filter_ids() {
+    local -n _catalog=$1
+    local wanted=$2
+    local entry id want
+    local IFS=','
+    for want in $wanted; do
+        for entry in "${_catalog[@]}"; do
+            id="${entry%%|*}"
+            if [ "$id" = "$want" ]; then
+                printf '%s\n' "$entry"
+                break
+            fi
+        done
+    done
+}
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -276,7 +348,19 @@ install_git() {
             fi
         fi
 
-        if ask_user "Configure Git identity?"; then
+        if [ "$NON_INTERACTIVE" = true ]; then
+            if [[ -n "$GIT_NAME" && -n "$GIT_EMAIL" ]]; then
+                if [ "$DRY_RUN" = true ]; then
+                    dry_run_notice "Set git user.name=\"$GIT_NAME\" and user.email=\"$GIT_EMAIL\""
+                else
+                    git config --global user.name "$GIT_NAME"
+                    git config --global user.email "$GIT_EMAIL"
+                    success_msg "Git identity configured."
+                fi
+            else
+                info_msg "Skipping Git identity (set GIT_NAME/GIT_EMAIL to configure non-interactively)."
+            fi
+        elif ask_user "Configure Git identity?"; then
             local git_name git_email
             read -p "Name: " git_name
             read -p "Email: " git_email
@@ -375,17 +459,18 @@ install_flatpak() {
 
 install_apps() {
     print_header "Applications (Flatpak & Spotify)"
+    load_catalog
     if ask_user "Install essential applications?"; then
         if command -v flatpak &> /dev/null; then
-            local apps=(
-                "com.bitwarden.desktop"
-                "com.visualstudio.code"
-                "com.stremio.Stremio"
-                "io.github.flattool.Warehouse"
-                "io.github.getnf.Bazaar"
-                "org.mozilla.FirefoxNightly"
-            )
-            for app in "${apps[@]}"; do
+            local entries=()
+            if [ -n "$ROYALUTIL_APPS" ]; then
+                mapfile -t entries < <(catalog_filter_ids FLATPAK_CATALOG "$ROYALUTIL_APPS")
+            else
+                entries=("${FLATPAK_CATALOG[@]}")
+            fi
+            local entry app
+            for entry in "${entries[@]}"; do
+                app="${entry%%|*}"
                 if ! flatpak list | grep -q "$app"; then
                     if [ "$DRY_RUN" = true ]; then
                         dry_run_notice "Install Flatpak app $app"
@@ -427,8 +512,16 @@ install_apps() {
 
 install_utilities() {
     print_header "System Utilities"
-    local tools=("fzf" "fastfetch" "btop" "zellij" "atuin")
-    for tool in "${tools[@]}"; do
+    load_catalog
+    local entries=()
+    if [ -n "$ROYALUTIL_UTILITIES" ]; then
+        mapfile -t entries < <(catalog_filter_ids UTIL_CATALOG "$ROYALUTIL_UTILITIES")
+    else
+        entries=("${UTIL_CATALOG[@]}")
+    fi
+    local entry tool
+    for entry in "${entries[@]}"; do
+        tool="${entry%%|*}"
         if ! command -v "$tool" &> /dev/null; then
             if ask_user "Install $tool?"; then
                 if [ "$DRY_RUN" = true ]; then
@@ -526,15 +619,10 @@ uninstall_royalutil() {
 
     if command -v flatpak &> /dev/null; then
         if ask_user "Remove Flatpak applications installed by Royalutil?"; then
-            local apps=(
-                "com.bitwarden.desktop"
-                "com.visualstudio.code"
-                "com.stremio.Stremio"
-                "io.github.flattool.Warehouse"
-                "io.github.getnf.Bazaar"
-                "org.mozilla.FirefoxNightly"
-            )
-            for app in "${apps[@]}"; do
+            load_catalog
+            local entry app
+            for entry in "${FLATPAK_CATALOG[@]}"; do
+                app="${entry%%|*}"
                 if flatpak list | grep -q "$app"; then
                     if [ "$DRY_RUN" = true ]; then
                         dry_run_notice "Uninstall Flatpak app $app"
@@ -548,9 +636,12 @@ uninstall_royalutil() {
         fi
     fi
 
-    if ask_user "Remove system utilities (fzf, fastfetch, btop, zellij)?"; then
-        local tools=("fzf" "fastfetch" "btop" "zellij")
-        for tool in "${tools[@]}"; do
+    if ask_user "Remove system utilities Royalutil may have installed?"; then
+        load_catalog
+        local entry tool
+        for entry in "${UTIL_CATALOG[@]}"; do
+            tool="${entry%%|*}"
+            [ "$tool" = "atuin" ] && continue
             if command -v "$tool" &> /dev/null; then
                 if [ "$DRY_RUN" = true ]; then
                     dry_run_notice "Remove $tool"
@@ -579,19 +670,34 @@ Options:
   -y, --non-interactive Run all modules without user prompts.
   -u, --uninstall       Roll back Royalutil's config changes (skips the setup menu).
   -n, --dry-run         Show what each selected module would do, without changing anything.
+  --modules=LIST        Run only the given comma-separated module numbers, non-interactively
+                        (e.g. --modules=1,3,8). Intended for scripting/GUI front-ends.
 
-Modules available:
-  - System Maintenance
-  - Default Code Editor (Nano)
-  - Git Setup
-  - Homebrew Setup
-  - Zsh & Enhancements
-  - Flatpak Framework
-  - Applications (Spotify, VS Code, etc.)
-  - System Utilities (fzf, btop, etc.)
-  - Bootloader Themes
-  - Nerd Fonts (JetBrainsMono)
-  - Uninstall / Rollback
+Modules available (numbers used by --modules):
+  1  - System Maintenance
+  2  - Default Code Editor (Nano)
+  3  - Git Setup
+  4  - Homebrew Setup
+  5  - Zsh & Enhancements
+  6  - Flatpak Framework
+  7  - Applications (Spotify, VS Code, etc.)
+  8  - System Utilities (fzf, btop, etc.)
+  9  - Bootloader Themes
+  10 - Nerd Fonts (JetBrainsMono)
+  11 - Uninstall / Rollback
+
+Environment variables:
+  GIT_NAME, GIT_EMAIL     Used by module 3 (Git Setup) to configure git identity when
+                          running non-interactively (--modules or -y). If unset, identity
+                          configuration is skipped rather than prompting.
+  ROYALUTIL_CONFIG        Path to the catalog config file (default: royalutil.conf next
+                          to this script). See that file for its [flatpak]/[utilities]
+                          format; it lists the apps/tools modules 7 and 8 offer.
+  ROYALUTIL_APPS          Comma-separated Flatpak app IDs from the [flatpak] catalog.
+                          Restricts module 7 to just these apps (e.g. --modules=7 with
+                          ROYALUTIL_APPS=com.visualstudio.code,org.gimp.GIMP).
+  ROYALUTIL_UTILITIES     Comma-separated tool IDs from the [utilities] catalog.
+                          Restricts module 8 the same way ROYALUTIL_APPS restricts 7.
 EOF
     exit 0
 }
@@ -690,6 +796,45 @@ run_fallback_menu() {
     esac
 }
 
+run_selected_modules() {
+    local list=$1
+    local tasks=()
+    local IFS=','
+    local num
+    for num in $list; do
+        case $num in
+            1) tasks+=("maintenance") ;;
+            2) tasks+=("setup_editor") ;;
+            3) tasks+=("install_git") ;;
+            4) tasks+=("setup_brew") ;;
+            5) tasks+=("setup_zsh") ;;
+            6) tasks+=("install_flatpak") ;;
+            7) tasks+=("install_apps") ;;
+            8) tasks+=("install_utilities") ;;
+            9) tasks+=("install_themes") ;;
+            10) tasks+=("install_nerdfonts") ;;
+            11) tasks+=("uninstall_royalutil") ;;
+            *) warn_msg "Ignoring unknown module number: $num" ;;
+        esac
+    done
+
+    if [ "${#tasks[@]}" -eq 0 ]; then
+        error_msg "No valid modules selected."
+        return 1
+    fi
+
+    local total=${#tasks[@]}
+    local count=0
+    for task in "${tasks[@]}"; do
+        count=$((count + 1))
+        info_msg "Running module: $task..."
+        $task
+        echo ""
+        show_progress "$count" "$total"
+        echo -e "\n"
+    done
+}
+
 run_full_setup() {
     local tasks=(
         "maintenance"
@@ -723,6 +868,7 @@ while [[ "$#" -gt 0 ]]; do
         -y|--non-interactive) NON_INTERACTIVE=true ;;
         -u|--uninstall) UNINSTALL_MODE=true ;;
         -n|--dry-run) DRY_RUN=true ;;
+        --modules=*) MODULES_ARG="${1#--modules=}"; NON_INTERACTIVE=true ;;
     esac
     shift
 done
@@ -761,7 +907,9 @@ else
     trap '[[ -n "$SUDO_KEEP_ALIVE_PID" ]] && kill "$SUDO_KEEP_ALIVE_PID" 2>/dev/null' EXIT
 fi
 
-if [ "$UNINSTALL_MODE" = true ]; then
+if [ -n "$MODULES_ARG" ]; then
+    run_selected_modules "$MODULES_ARG"
+elif [ "$UNINSTALL_MODE" = true ]; then
     uninstall_royalutil
 elif [ "$NON_INTERACTIVE" = true ]; then
     run_full_setup

@@ -43,6 +43,23 @@ curl -fsSL https://raw.githubusercontent.com/royalturd/Royalutil/refs/heads/mast
 * **Zsh**: Enhanced with autosuggestions and syntax highlighting.
 * **Atuin & Modern Tools**: `fzf`, `fastfetch`, `btop`, `zellij`.
 
+### 🗂️ App & Tool Catalog (`royalutil.conf`)
+The Flatpak apps (module 7) and CLI utilities (module 8) are no longer hardcoded —
+they're read from [`royalutil.conf`](royalutil.conf) at startup. Add or remove a line
+there to change what shows up in both the CLI menu and the GUI, no script edits needed:
+```
+[flatpak]
+com.spotify.Client|Spotify|Music streaming
+
+[utilities]
+ripgrep|ripgrep|Fast recursive grep
+```
+* `ROYALUTIL_CONFIG=/path/to/file` points at a different catalog file.
+* `ROYALUTIL_APPS=id1,id2` / `ROYALUTIL_UTILITIES=id1,id2` restrict modules 7/8 to just
+  those catalog IDs when running non-interactively (`--modules=7`, `-y`, etc.) — this is
+  what the GUI's **Install Selected** button uses under the hood.
+* If the file is missing, Royalutil falls back to a small built-in default list.
+
 ### 🚀 Usage
 
 #### Command Line Arguments
@@ -54,6 +71,8 @@ Options:
   -y, --non-interactive Run all modules without user prompts.
   -u, --uninstall       Roll back Royalutil's config changes.
   -n, --dry-run         Preview what each module would do without changing anything.
+  --modules=LIST        Run only the given comma-separated module numbers, non-interactively
+                        (e.g. --modules=1,3,8). Intended for scripting/GUI front-ends.
 ```
 
 #### Interactive Setup
