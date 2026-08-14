@@ -82,6 +82,35 @@ Run without arguments to enter the TUI:
 ```
 Follow the prompts! Use `TAB` to multi-select modules in the `fzf` menu.
 
+#### GUI (Python/Tkinter)
+Prefer a graphical app over the terminal? `royalutil_gui.py` is a Tkinter front-end
+for `royalutil.sh` — check the modules you want, optionally fill in a Git name/email,
+and hit Run. It streams live output, shows progress, and pops a normal password
+dialog when `sudo` needs it.
+
+It also has an **App & Tool Catalog** panel below the module list, populated from
+`royalutil.conf`: check the individual Flatpak apps and CLI tools you want and click
+**Install Selected** to run just those — separate from the main Run button, which still
+executes whole modules.
+
+<p align="center">
+  <img src="./asset/gui-screenshot.png" title="Royalutil GUI">
+</p>
+
+```bash
+python3 royalutil_gui.py
+```
+
+Or launch it directly from a fresh terminal in one line (clones the repo, then opens the GUI):
+```bash
+git clone https://github.com/royalturd/Royalutil.git && python3 Royalutil/royalutil_gui.py
+```
+
+Requirements: Python 3 with Tkinter (`sudo apt install python3-tk` if it's missing).
+No other dependencies — it drives `royalutil.sh` in the same directory via
+`--modules=<list>`, so it stays in sync with the CLI/TUI automatically. Defaults to
+**dry-run** so the first click is always safe to preview.
+
 ---
 
 ## 📜 Requirements
