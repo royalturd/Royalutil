@@ -24,11 +24,18 @@ curl -fsSL https://raw.githubusercontent.com/royalturd/Royalutil/refs/heads/mast
 * **Progress Tracking**: Dynamic progress bar during multi-module execution.
 * **Network Awareness**: Automatic connectivity checks before starting downloads.
 * **Stylized Interface**: Rounded borders and clear headers for a premium feel.
+* **Dry-Run Mode**: Run with `--dry-run` to preview every action a module would take (installs, file edits, shell changes) with zero side effects — no sudo prompt, no package installs, no file writes.
 
 ### 🛠️ Core System (Modular)
 * **System Maintenance**: Refresh package lists and upgrade with automatic cleanup.
 * **Default Editor**: Safely configure `nano` as the global system editor with markers.
 * **Git Setup**: Interactive configuration (identity, global settings, & credential caching).
+
+### ↩️ Uninstall / Rollback
+* **Config Rollback**: Removes Royalutil's managed lines from `.zshrc`/`.bashrc` (editor & Zsh enhancements).
+* **Shell Revert**: Optionally switches your default shell back to `bash`.
+* **Cleanup**: Optionally removes the Flatpak apps and CLI utilities Royalutil installed.
+* Run via `./royalutil.sh --uninstall` or select it from the interactive menu.
 
 ### 📦 Package & Shell Management
 * **Homebrew**: Installs Linuxbrew for extra package support.
@@ -45,6 +52,8 @@ curl -fsSL https://raw.githubusercontent.com/royalturd/Royalutil/refs/heads/mast
 Options:
   -h, --help            Show help message.
   -y, --non-interactive Run all modules without user prompts.
+  -u, --uninstall       Roll back Royalutil's config changes.
+  -n, --dry-run         Preview what each module would do without changing anything.
 ```
 
 #### Interactive Setup
