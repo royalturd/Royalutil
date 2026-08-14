@@ -11,7 +11,7 @@ fi
 chmod +x "$SCRIPT"
 
 echo "Checking for essential functions..."
-FUNCTIONS=("maintenance" "setup_editor" "install_git" "setup_brew" "setup_zsh" "install_flatpak" "install_apps" "install_utilities" "install_themes" "append_if_missing" "check_dependencies" "check_network" "show_progress")
+FUNCTIONS=("maintenance" "setup_editor" "install_git" "setup_brew" "setup_zsh" "install_flatpak" "install_apps" "install_utilities" "install_themes" "append_if_missing" "remove_marker_block" "uninstall_royalutil" "dry_run_notice" "check_dependencies" "check_network" "show_progress")
 
 for func in "${FUNCTIONS[@]}"; do
     if grep -q "$func()" "$SCRIPT"; then
