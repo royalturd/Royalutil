@@ -15,6 +15,7 @@ Linux only.
 
 import os
 import pty
+import random
 import re
 import signal
 import sys
@@ -103,33 +104,94 @@ def load_catalog():
     return flatpak, utilities
 
 # ---------------------------------------------------------------------------
-# Material 3 design tokens (baseline purple scheme, light surface + a dark
-# "surface" island for the console, mirroring how M3 apps keep code/output
-# panels dark even in a light theme).
+# Material 3 design tokens (baseline purple scheme). Two full palettes -
+# light and dark - live in THEMES; apply_theme() pushes one of them into the
+# module-level names below (PRIMARY, SURFACE, ...) that every widget class
+# reads. Tkinter widgets bake colors in at construction time, so switching
+# theme at runtime works by calling apply_theme() and then rebuilding the UI
+# (see RoyalutilGUI._toggle_theme), rather than repainting in place.
 # ---------------------------------------------------------------------------
-PRIMARY = "#6750A4"
-ON_PRIMARY = "#FFFFFF"
-PRIMARY_CONTAINER = "#EADDFF"
-ON_PRIMARY_CONTAINER = "#21005D"
-SECONDARY_CONTAINER = "#E8DEF8"
-ON_SECONDARY_CONTAINER = "#1D192B"
-SURFACE = "#FFFBFE"
-SURFACE_CONTAINER_LOW = "#F7F2FA"
-SURFACE_CONTAINER = "#F3EDF7"
-SURFACE_CONTAINER_HIGH = "#ECE6F0"
-SURFACE_CONTAINER_HIGHEST = "#E6E0E9"
-ON_SURFACE = "#1C1B1F"
-ON_SURFACE_VARIANT = "#49454F"
-OUTLINE = "#79747E"
-OUTLINE_VARIANT = "#CAC4D0"
-ERROR = "#B3261E"
-ON_ERROR = "#FFFFFF"
+THEMES = {
+    "light": dict(
+        PRIMARY="#6750A4",
+        ON_PRIMARY="#FFFFFF",
+        PRIMARY_CONTAINER="#EADDFF",
+        ON_PRIMARY_CONTAINER="#21005D",
+        SECONDARY_CONTAINER="#E8DEF8",
+        ON_SECONDARY_CONTAINER="#1D192B",
+        SURFACE="#FFFBFE",
+        SURFACE_CONTAINER_LOW="#F7F2FA",
+        SURFACE_CONTAINER="#F3EDF7",
+        SURFACE_CONTAINER_HIGH="#ECE6F0",
+        SURFACE_CONTAINER_HIGHEST="#E6E0E9",
+        ON_SURFACE="#1C1B1F",
+        ON_SURFACE_VARIANT="#49454F",
+        OUTLINE="#79747E",
+        OUTLINE_VARIANT="#CAC4D0",
+        ERROR="#B3261E",
+        ON_ERROR="#FFFFFF",
+    ),
+    "dark": dict(
+        PRIMARY="#D0BCFF",
+        ON_PRIMARY="#381E72",
+        PRIMARY_CONTAINER="#4F378B",
+        ON_PRIMARY_CONTAINER="#EADDFF",
+        SECONDARY_CONTAINER="#4A4458",
+        ON_SECONDARY_CONTAINER="#E8DEF8",
+        SURFACE="#141218",
+        SURFACE_CONTAINER_LOW="#1D1B20",
+        SURFACE_CONTAINER="#211F26",
+        SURFACE_CONTAINER_HIGH="#2B2930",
+        SURFACE_CONTAINER_HIGHEST="#36343B",
+        ON_SURFACE="#E6E1E5",
+        ON_SURFACE_VARIANT="#CAC4D0",
+        OUTLINE="#938F99",
+        OUTLINE_VARIANT="#49454F",
+        ERROR="#F2B8B5",
+        ON_ERROR="#601410",
+    ),
+}
+CURRENT_THEME = "light"
 
+
+def apply_theme(name):
+    """Push THEMES[name] into this module's globals (PRIMARY, SURFACE, ...)."""
+    global CURRENT_THEME
+    globals().update(THEMES[name])
+    CURRENT_THEME = name
+
+
+apply_theme(CURRENT_THEME)
+
+# The console always looks like a real terminal (dark), regardless of theme.
 DARK_SURFACE = "#1C1B1F"
 DARK_ON_SURFACE = "#E6E1E5"
 DARK_PRIMARY = "#D0BCFF"
 
 FONT_FAMILY = "TkDefaultFont"
+
+# ---------------------------------------------------------------------------
+# A few famous F1 team radio moments, shown via the topbar's Radio button and
+# chattering at random as the run progresses. "Box, box, box." is reserved
+# as the finish-line call (see _on_done) rather than mixed into the pool.
+# Purely for fun - no functional purpose.
+# ---------------------------------------------------------------------------
+F1_FINISH_MESSAGE = '"Box, box, box." — that\'s the run, box this lap'
+
+F1_RADIO_MESSAGES = [
+    '"Leave me alone, I know what I\'m doing." — Kimi Räikkönen, Abu Dhabi 2012',
+    '"Just stop talking to me, I know what to do." — Kimi Räikkönen',
+    '"Bwoah." — Kimi Räikkönen',
+    '"Smooth like a baby\'s bottom." — Kimi Räikkönen, on his tyres',
+    '"It\'s hammer time." — race engineer to Lewis Hamilton',
+    '"We are checking, Charles." — Ferrari pit wall, on strategy',
+    '"It\'s V-Bottas, and I\'m sorry." — Valtteri Bottas',
+    '"Woohoo! That\'s what I\'m talking about!" — Daniel Ricciardo',
+    '"Gap to the car behind is coming down, push push push." — race engineer',
+    '"Tyres are gone, mate. Absolutely nothing left." — driver on the radio',
+    '"Copy that, radio check, all good." — generic radio check',
+    '"Somebody is stopping on the racetrack, somewhere." — Kimi Räikkönen',
+]
 
 
 def _resolve_font_family(root):
@@ -220,7 +282,8 @@ class MDButton(tk.Canvas):
                  width=120, height=40, font=None, state="normal"):
         parent_bg = parent.cget("bg")
         super().__init__(parent, width=width, height=height, bg=parent_bg,
-                          highlightthickness=0, bd=0, cursor="hand2")
+                          highlightthickness=0, bd=0, cursor="hand2",
+                          takefocus=(0 if state == "disabled" else 1))
         self.command = command
         self.variant = variant
         self.text = text
@@ -228,6 +291,7 @@ class MDButton(tk.Canvas):
         self._state = state
         self._hover = False
         self._press = False
+        self._focused = False
         self.parent_bg = parent_bg
         self._resolve_colors()
         self.bind("<Enter>", self._on_enter)
@@ -235,6 +299,10 @@ class MDButton(tk.Canvas):
         self.bind("<ButtonPress-1>", self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
         self.bind("<Configure>", lambda e: self._draw())
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        self.bind("<Return>", self._on_key_activate)
+        self.bind("<space>", self._on_key_activate)
         self._draw()
 
     def _resolve_colors(self):
@@ -254,6 +322,9 @@ class MDButton(tk.Canvas):
         self._state = state
         self._hover = False
         self._press = False
+        if state == "disabled":
+            self._focused = False
+        self.configure(takefocus=(0 if state == "disabled" else 1))
         self._draw()
 
     def _current_fill(self):
@@ -275,9 +346,26 @@ class MDButton(tk.Canvas):
         fill = self._current_fill()
         disabled = self._state == "disabled"
         outline = self.border if (self.border and not disabled) else ""
-        rounded_rect(self, 1, 1, w - 1, h - 1, r, fill=fill, outline=outline, width=1.4)
+        width = 1.4
+        if self._focused and not disabled:
+            outline = PRIMARY
+            width = 2.2
+        rounded_rect(self, 1, 1, w - 1, h - 1, r, fill=fill, outline=outline, width=width)
         fg = self.fg if not disabled else mix(self.parent_bg, ON_SURFACE, 0.38)
         self.create_text(w // 2, h // 2, text=self.text, fill=fg, font=self.font)
+
+    def _on_focus_in(self, e):
+        if self._state != "disabled":
+            self._focused = True
+            self._draw()
+
+    def _on_focus_out(self, e):
+        self._focused = False
+        self._draw()
+
+    def _on_key_activate(self, e):
+        if self._state != "disabled" and self.command:
+            self.command()
 
     def _on_enter(self, e):
         if self._state != "disabled":
@@ -307,11 +395,24 @@ class MDCheckbox(tk.Canvas):
     def __init__(self, parent, variable, size=20, command=None):
         parent_bg = parent.cget("bg")
         super().__init__(parent, width=size, height=size, bg=parent_bg,
-                          highlightthickness=0, bd=0, cursor="hand2")
+                          highlightthickness=0, bd=0, cursor="hand2", takefocus=1)
         self.var = variable
         self.size = size
         self.command = command
+        self._focused = False
         self.bind("<Button-1>", self.toggle)
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        self.bind("<Return>", self.toggle)
+        self.bind("<space>", self.toggle)
+        self._draw()
+
+    def _on_focus_in(self, e):
+        self._focused = True
+        self._draw()
+
+    def _on_focus_out(self, e):
+        self._focused = False
         self._draw()
 
     def toggle(self, e=None):
@@ -325,6 +426,8 @@ class MDCheckbox(tk.Canvas):
         s = self.size
         on = self.var.get()
         bg = self.cget("bg")
+        if self._focused:
+            rounded_rect(self, 0.5, 0.5, s - 0.5, s - 0.5, 5, fill="", outline=PRIMARY, width=1.5)
         fill = PRIMARY if on else bg
         outline = "" if on else OUTLINE
         rounded_rect(self, 1.5, 1.5, s - 1.5, s - 1.5, 4, fill=fill, outline=outline, width=1.6)
@@ -340,11 +443,24 @@ class MDSwitch(tk.Canvas):
     def __init__(self, parent, variable, command=None, width=48, height=28):
         parent_bg = parent.cget("bg")
         super().__init__(parent, width=width, height=height, bg=parent_bg,
-                          highlightthickness=0, bd=0, cursor="hand2")
+                          highlightthickness=0, bd=0, cursor="hand2", takefocus=1)
         self.var = variable
         self.command = command
+        self._focused = False
         self.bind("<Button-1>", self._toggle)
         self.bind("<Configure>", lambda e: self._draw())
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        self.bind("<Return>", self._toggle)
+        self.bind("<space>", self._toggle)
+        self._draw()
+
+    def _on_focus_in(self, e):
+        self._focused = True
+        self._draw()
+
+    def _on_focus_out(self, e):
+        self._focused = False
         self._draw()
 
     def _toggle(self, e=None):
@@ -358,6 +474,8 @@ class MDSwitch(tk.Canvas):
         w = self.winfo_width() or int(self["width"])
         h = self.winfo_height() or int(self["height"])
         on = self.var.get()
+        if self._focused:
+            rounded_rect(self, 0, 0, w, h, h // 2, fill="", outline=PRIMARY, width=1.5)
         track_fill = PRIMARY if on else SURFACE_CONTAINER_HIGHEST
         track_outline = "" if on else OUTLINE
         rounded_rect(self, 1, 1, w - 1, h - 1, h // 2, fill=track_fill, outline=track_outline, width=1.2)
@@ -537,9 +655,10 @@ class MDDialog(tk.Toplevel):
 
         btn_row = tk.Frame(card.inner, bg=SURFACE_CONTAINER_HIGH)
         btn_row.pack(fill="x", pady=(16, 0))
-        MDButton(btn_row, ok_text, command=self._ok,
-                 variant="danger" if danger else "filled",
-                 width=100, height=38, font=F(10, "bold")).pack(side="right")
+        ok_btn = MDButton(btn_row, ok_text, command=self._ok,
+                           variant="danger" if danger else "filled",
+                           width=100, height=38, font=F(10, "bold"))
+        ok_btn.pack(side="right")
         if secondary_text:
             MDButton(btn_row, secondary_text, command=self._secondary,
                       variant="danger" if secondary_danger else "outlined",
@@ -548,12 +667,26 @@ class MDDialog(tk.Toplevel):
             MDButton(btn_row, "Cancel", command=self._cancel, variant="text",
                       width=90, height=38, font=F(10, "bold")).pack(side="right", padx=(0, 8))
 
+        # Standard dialog keyboard conventions: Escape dismisses, Enter
+        # confirms — unless focus is already on a button, whose own
+        # Return/space handler fires instead (avoids double-invoking).
+        self.bind("<Escape>", lambda e: self._cancel() if show_cancel else self._ok())
+
+        def _on_dialog_return(e):
+            if isinstance(self.focus_get(), MDButton):
+                return
+            self._ok()
+
+        self.bind("<Return>", _on_dialog_return)
+
         self.grab_set()
         self.update_idletasks()
         # Never let the window shrink smaller than its content needs (e.g. the
         # 3-button row), but resizable=True still lets a user grow it further
         # if their screen/font settings need more room.
         self.minsize(self.winfo_reqwidth(), self.winfo_reqheight())
+        if not entry:
+            ok_btn.focus_set()
         self._center(parent)
         self.wait_window(self)
 
@@ -672,6 +805,7 @@ class RoyalutilGUI:
         self.event_queue = queue.Queue()
         self.awaiting_password = False
         self.running = False
+        self._last_radio_pct = -1
 
         self.module_vars = {}
         self.app_vars = {}
@@ -679,6 +813,7 @@ class RoyalutilGUI:
         self.dry_run_var = tk.BooleanVar(value=True)
         self.git_name_var = tk.StringVar()
         self.git_email_var = tk.StringVar()
+        self.dark_mode_var = tk.BooleanVar(value=(CURRENT_THEME == "dark"))
 
         self._build_ui()
         self._check_script_present()
@@ -729,6 +864,15 @@ class RoyalutilGUI:
                  fg=ON_SURFACE, anchor="w").pack(anchor="w")
         tk.Label(title_col, text="Interactive Linux setup utility", font=F(9), bg=SURFACE,
                  fg=ON_SURFACE_VARIANT, anchor="w").pack(anchor="w")
+
+        right = tk.Frame(inner, bg=SURFACE)
+        right.pack(side="right", pady=10)
+        dark_col = tk.Frame(right, bg=SURFACE)
+        dark_col.pack(side="left")
+        tk.Label(dark_col, text="🌙 Dark", font=F(9), bg=SURFACE,
+                 fg=ON_SURFACE_VARIANT).pack(side="left", padx=(0, 6))
+        MDSwitch(dark_col, variable=self.dark_mode_var, command=self._toggle_theme).pack(side="left")
+
         tk.Frame(self.root, bg=OUTLINE_VARIANT, height=1).pack(fill="x", side="top")
 
     def _section_label(self, parent, text, fill):
@@ -945,6 +1089,8 @@ class RoyalutilGUI:
             font=("Monospace", 10), wrap="word", state="normal", bd=0, highlightthickness=0,
         )
         self.console.pack(fill="both", expand=True)
+        self.console.tag_configure("radio", foreground=DARK_PRIMARY,
+                                    font=("Monospace", 10, "italic"))
         self.terminal = TerminalConsole(self.console)
 
         input_row = tk.Frame(parent, bg=SURFACE)
@@ -967,6 +1113,65 @@ class RoyalutilGUI:
                      f"Expected to find royalutil.sh next to this GUI:\n{ROYALUTIL_SH}")
             self.run_btn.set_state("disabled")
             self.install_btn.set_state("disabled")
+
+    def _emit_radio_line(self, text):
+        self.console.insert("end", f"\n📻 {text}\n", ("radio",))
+        self.console.see("end")
+
+    def _maybe_radio_chatter(self, pct):
+        """Occasionally drops a fun F1 team-radio line into the console as
+        the run's progress percentage advances. Throttled to at most once
+        per distinct percentage so it doesn't spam every output chunk."""
+        if pct <= 0 or pct >= 100 or pct == self._last_radio_pct:
+            return
+        self._last_radio_pct = pct
+        if random.random() < 0.35:
+            self._emit_radio_line(random.choice(F1_RADIO_MESSAGES))
+
+    def _toggle_theme(self):
+        apply_theme("dark" if self.dark_mode_var.get() else "light")
+        self._rebuild_ui()
+
+    def _rebuild_ui(self):
+        """Tkinter widgets bake their colors in at construction time, so the
+        only reliable way to re-theme everything (cards, buttons, checkboxes,
+        entries, ...) is to tear the whole UI down and rebuild it against the
+        newly-applied theme globals. Selections and running state are
+        captured first and restored afterwards so the toggle is invisible to
+        the user's in-progress choices."""
+        was_running = self.running
+        selected_modules = {n for n, v in self.module_vars.items() if v.get()}
+        selected_apps = {i for i, v in self.app_vars.items() if v.get()}
+        selected_utils = {i for i, v in self.util_vars.items() if v.get()}
+
+        for child in self.root.winfo_children():
+            child.destroy()
+
+        self.module_vars = {}
+        self.app_vars = {}
+        self.util_vars = {}
+        self.root.configure(bg=SURFACE)
+        self._build_ui()
+        self._check_script_present()
+
+        for n, v in self.module_vars.items():
+            if n in selected_modules:
+                v.set(True)
+        for i, v in self.app_vars.items():
+            if i in selected_apps:
+                v.set(True)
+        for i, v in self.util_vars.items():
+            if i in selected_utils:
+                v.set(True)
+        self._refresh_checkboxes()
+
+        if was_running:
+            self.status_label.config(text="Running...")
+            self.run_btn.set_state("disabled")
+            self.install_btn.set_state("disabled")
+            self.cancel_btn.set_state("normal")
+            self.input_entry.set_state("normal")
+            self.send_btn.set_state("normal")
 
     def _select_all(self):
         self._set_all(self.module_vars, True)
@@ -1076,6 +1281,7 @@ class RoyalutilGUI:
     def _start_run(self, args, env):
         self.console.delete("1.0", "end")
         self.progress.set(0)
+        self._last_radio_pct = -1
         self.status_label.config(text="Running...")
         self.run_btn.set_state("disabled")
         self.install_btn.set_state("disabled")
@@ -1129,6 +1335,7 @@ class RoyalutilGUI:
                         pct = int(m.group(1))
                         self.progress.set(pct)
                         self.status_label.config(text=f"{pct}% ({m.group(2)}/{m.group(3)})")
+                        self._maybe_radio_chatter(pct)
                 elif kind == "password_prompt":
                     if not self.awaiting_password:
                         self.awaiting_password = True
@@ -1191,11 +1398,12 @@ class RoyalutilGUI:
         if ok:
             self.status_label.config(text="Done")
             self.progress.set(100)
+            self._emit_radio_line(F1_FINISH_MESSAGE)
+            md_alert(self.root, "🏁 Royalutil", "Finished successfully.\n\n📻 Box, box, box.")
         else:
             self.status_label.config(text="Failed / interrupted")
-        md_alert(self.root, "Royalutil",
-                 "Finished successfully." if ok else
-                 "Finished with errors or was cancelled.\nCheck the console output and log file for details.")
+            md_alert(self.root, "Royalutil",
+                     "Finished with errors or was cancelled.\nCheck the console output and log file for details.")
 
     def _open_log(self):
         if not os.path.isfile(LOG_FILE):
